@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MiAppPeliculas());
@@ -11,135 +13,145 @@ class MiAppPeliculas extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Catálogo de Películas',
+      title: 'Catálogo Pokémon',
       home: const PantallaInicio(),
     );
   }
 }
 
-class PantallaInicio extends StatelessWidget {
+class Pokemon {
+  final String nombre;
+  final int altura;
+  final int peso;
+  final String imagen;
+
+  Pokemon({
+    required this.nombre,
+    required this.altura,
+    required this.peso,
+    required this.imagen,
+  });
+
+  factory Pokemon.fromJson(Map<String, dynamic> json) {
+    return Pokemon(
+      nombre: json['name'],
+      altura: json['height'],
+      peso: json['weight'],
+      imagen: json['sprites']['front_default'],
+    );
+  }
+}
+
+class PantallaInicio extends StatefulWidget {
   const PantallaInicio({super.key});
+
+  @override
+  State<PantallaInicio> createState() => _PantallaInicioState();
+}
+
+class _PantallaInicioState extends State<PantallaInicio> {
+  late Future<Pokemon> pokemonFuture;
+final TextEditingController controladorPokemon = TextEditingController();
+ Future<Pokemon> obtenerPokemon(String nombrePokemon) async {
+  final respuesta = await http.get(
+    Uri.parse('https://pokeapi.co/api/v2/pokemon/$nombrePokemon'),
+  );
+
+  if (respuesta.statusCode == 200) {
+    return Pokemon.fromJson(jsonDecode(respuesta.body));
+  } else {
+    throw Exception('No se encontró el Pokémon');
+  }
+}
+
+  @override
+  void initState() {
+    super.initState();
+    pokemonFuture = obtenerPokemon('pikachu');
+  }
+  void buscarPokemon() {
+  final nombre = controladorPokemon.text.toLowerCase().trim();
+
+  if (nombre.isNotEmpty) {
+    setState(() {
+      pokemonFuture = obtenerPokemon(nombre);
+    });
+  }
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: const Text('Catálogo de Películas'),
+        title: const Text('Catálogo Pokémon'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: 220,
-                  color: Colors.blueGrey,
-                ),
-                Container(
-                  width: double.infinity,
-                  height: 220,
-                  color: Colors.black.withOpacity(0.35),
-                ),
-                const Text(
-                  'Bienvenido a tu app de películas',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Categorías principales',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                categoriaItem('Acción', Icons.local_fire_department),
-                categoriaItem('Drama', Icons.theater_comedy),
-                categoriaItem('Comedia', Icons.sentiment_satisfied),
-              ],
-            ),
-            const SizedBox(height: 25),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 6,
-                    color: Colors.black12,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Película destacada: Interstellar',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Ciencia ficción / Aventura',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Ejemplo de tarjeta usando Container y Column para organizar la información.',
-                    style: TextStyle(fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
-          ],
+body: Padding(
+  padding: const EdgeInsets.all(20),
+  child: Column(
+    children: [
+      TextField(
+        controller: controladorPokemon,
+        decoration: const InputDecoration(
+          labelText: 'Escribe el nombre del Pokémon',
+          border: OutlineInputBorder(),
         ),
       ),
-    );
-  }
+      const SizedBox(height: 12),
+      ElevatedButton(
+        onPressed: buscarPokemon,
+        child: const Text('Buscar Pokémon'),
+      ),
+      const SizedBox(height: 30),
+      Expanded(
+        child: Center(
+          child: FutureBuilder<Pokemon>(
+            future: pokemonFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final pokemon = snapshot.data!;
 
-  static Widget categoriaItem(String titulo, IconData icono) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.blueAccent,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icono, color: Colors.white, size: 30),
-          const SizedBox(height: 8),
-          Text(
-            titulo,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+                return Card(
+                  elevation: 6,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.network(
+                          pokemon.imagen,
+                          width: 150,
+                          height: 150,
+                        ),
+                        Text(
+                          pokemon.nombre.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text('Altura: ${pokemon.altura}'),
+                        Text('Peso: ${pokemon.peso}'),
+                      ],
+                    ),
+                  ),
+                );
+              } else if (snapshot.hasError) {
+                return const Text(
+                  'No se encontró el Pokémon. Intenta con otro nombre.',
+                  textAlign: TextAlign.center,
+                );
+              }
+
+              return const CircularProgressIndicator();
+            },
           ),
-        ],
+        ),
       ),
-    );
+    ],
+  ),
+)    );
   }
 }
